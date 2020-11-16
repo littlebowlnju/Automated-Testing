@@ -34,36 +34,49 @@ public class MyCallGraph {
         Set<String> callees = new HashSet<>();
         if(mode == classMode){
             Set<String> changedClasses = new HashSet<>();
+            Set<String> dependedTestClasses = new HashSet<>();
             for(String method : changed){
                 changedClasses.add(method.split(" ")[0]);//选择修改的类
             }
 
             for(String methodName : graph.keySet()){
                 if(changedClasses.contains(methodName.split(" ")[0])){
+                    // 获取修改的类依赖的测试类
+                    for(String preMethodName : graph.get(methodName)){
+                        if(Test.isTest(preMethodName.split(" ")[0])){
+                            dependedTestClasses.add(preMethodName.split(" ")[0]);
+                        }
+                    }
+                }
+            }
+            for(String methodName : graph.keySet()){
+                if(dependedTestClasses.contains(methodName.split(" ")[0])){
                     callees.add(methodName);
                 }
             }
         }else if(mode == methodMode){
             callees.addAll(changed);
-        }
-        //从图中寻找调用了callees的方法,以及更深层次的调用关系，直到集合不再变化
-        while(true){
-            Set<String> callers = new HashSet<>(callees);
-            for(String callee : callees){
-                callers.addAll(graph.get(callee));
+            //从图中寻找调用了callees的方法,以及更深层次的调用关系，直到集合不再变化
+            while(true){
+                Set<String> callers = new HashSet<>(callees);
+                for(String callee : callees){
+                    callers.addAll(graph.get(callee));
+                }
+                if(callees.size()==callers.size()){
+                    break;
+                }
+                callees = callers;
             }
-            if(callees.size()==callers.size()){
-                break;
-            }
-            callees = callers;
         }
 
         Set<String> selectedTests = new HashSet<>();
-        for(String callee : callees){
-            if(Test.isTest(callee.split(" ")[0])&&!callee.contains("<init>")){
+        for(String callee : callees) {
+            if (Test.isTest(callee.split(" ")[0]) && !callee.contains("<init>") && !callee.contains("initialize")) {
+                // 去除初始化的方法
                 selectedTests.add(callee);
             }
         }
+
         return selectedTests;
     }
 }
